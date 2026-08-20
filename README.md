@@ -8,17 +8,36 @@ The service does not call a third-party registry and does not publish directly f
 
 ### `main.py`
 
-Defines the local endpoint:
+Creates the FastAPI application and includes the HTTP router from `app/routes.py`.
+
+### `app/routes.py`
+
+Defines the local endpoints:
 
 ```http
 POST /agents/onboard
+GET /agents/registry
 ```
 
-The endpoint uses the fixed template in `registry_client.py`, verifies that the Agent 365 CLI generated a blueprint configuration, and returns the `agentBlueprintId` that publishing uses.
+`POST /agents/onboard` verifies that the Agent 365 CLI generated a blueprint configuration and returns the onboarding metadata and `agentBlueprintId` that publishing uses.
+
+`GET /agents/registry` returns the current registered agent metadata without performing a separate onboarding action.
+
+### `app/services.py`
+
+Contains the service that reads `a365.generated.config.json` and extracts `agentBlueprintId`.
+
+### `app/models.py`
+
+Contains the typed registration and onboarding result models.
+
+### `app/config.py`
+
+Reads environment configuration such as `A365_GENERATED_CONFIG`.
 
 ### `registry_client.py`
 
-Contains the local wrapper that reads `a365.generated.config.json` and extracts `agentBlueprintId`.
+Provides backward-compatible imports for the registry service and models.
 
 Blueprint creation, required permissions, managed identity, infrastructure, and platform metadata are owned by `a365 setup all`, as required by the Agent 365 workflow. This client does not make a third-party API call.
 
@@ -95,17 +114,27 @@ Do not manually create a partial blueprint in this service. Microsoft notes that
 
 ## Fixed Agent Template
 
-The fixed template is defined in `registry_client.py`:
+The fixed template is defined in `app/services.py`:
 
 ```json
 {
   "display_name": "claims-support-agent",
   "sponsor_user_id": "sponsor-user-object-id",
-  "owner_user_id": "owner-user-object-id"
+   "owner_user_id": "owner-user-object-id",
+   "description": "Assists claims teams with support and onboarding workflows.",
+   "version": "1.0.0",
+   "category": "claims-support",
+   "capabilities": [
+      "claims triage",
+      "knowledge retrieval",
+      "case handoff"
+   ],
+   "environment": "development",
+   "support_contact": "claims-platform-team@example.com"
 }
 ```
 
-Replace the placeholder IDs with the real Microsoft Entra user object IDs before running the service. `owner_user_id` is optional. `a365 setup all` remains responsible for creating the fully configured blueprint.
+Replace the placeholder IDs and support contact with the real Microsoft Entra user object IDs and team address before running the service. `owner_user_id` is optional. Update the description, version, category, capabilities, and environment as the agent changes. `a365 setup all` remains responsible for creating the fully configured blueprint.
 
 The FastAPI endpoint has no request body. Call it after `a365 setup all`:
 
@@ -123,6 +152,12 @@ Expected response shape:
    "agent_name": "claims-support-agent",
    "sponsor_user_id": "sponsor-user-object-id",
    "owner_user_id": "owner-user-object-id",
+   "description": "Assists claims teams with support and onboarding workflows.",
+   "version": "1.0.0",
+   "category": "claims-support",
+   "capabilities": ["claims triage", "knowledge retrieval", "case handoff"],
+   "environment": "development",
+   "support_contact": "claims-platform-team@example.com",
   "blueprint_id": "<agent-blueprint-id>",
    "next_step": "Run 'a365 publish --agent-name claims-support-agent' and upload manifest/manifest.zip in the Microsoft 365 admin center."
 }
@@ -201,7 +236,7 @@ http://127.0.0.1:8000/docs
 The upload cannot create the blueprint. Microsoft requires the blueprint ID before `a365 publish` can update `manifest.json` and create `manifest/manifest.zip`. The required order is:
 
 ```text
-1. Update the fixed template in `registry_client.py`.
+1. Update the fixed template in `app/services.py`.
 2. Run `a365 setup all --agent-name <display_name>` to create/configure the blueprint.
 3. Run `POST /agents/onboard` with no request body to verify `agentBlueprintId`.
 4. Test the agent locally.
