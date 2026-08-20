@@ -25,3 +25,7 @@ class OnboardingResult(BaseModel):
     capabilities: list[str] = Field(default_factory=list)
     environment: str = "development"
     support_contact: str = ""
+
+
+class RegistryRecord(OnboardingResult):
+    """Persisted registration record for an onboarded agent."""

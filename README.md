@@ -56,7 +56,7 @@ Blueprint creation, required permissions, managed identity, infrastructure, and 
 3. FastAPI service
    |
    | POST /agents/onboard
-   | Uses the fixed template
+   | Receives dynamic agent metadata
    | Reads agentBlueprintId from generated config
    v
 4. Agent 365 CLI
@@ -112,9 +112,9 @@ Get-Content a365.generated.config.json | ConvertFrom-Json | Select-Object agentB
 
 Do not manually create a partial blueprint in this service. Microsoft notes that platform-manageable blueprints require settings such as `managerApplications`; the CLI setup is the authoritative way to configure them.
 
-## Fixed Agent Template
+## Dynamic Agent Registration
 
-The fixed template is defined in `app/services.py`:
+The onboarding request supplies the metadata for each agent:
 
 ```json
 {
@@ -134,14 +134,22 @@ The fixed template is defined in `app/services.py`:
 }
 ```
 
-Replace the placeholder IDs and support contact with the real Microsoft Entra user object IDs and team address before running the service. `owner_user_id` is optional. Update the description, version, category, capabilities, and environment as the agent changes. `a365 setup all` remains responsible for creating the fully configured blueprint.
+Replace the placeholder IDs and support contact with real values. `owner_user_id` is optional. The metadata can be different for every onboarding request.
 
-The FastAPI endpoint has no request body. Call it after `a365 setup all`:
+Run `a365 setup all` for the requested agent name first, then call the onboarding endpoint:
 
 ```powershell
 Invoke-RestMethod `
     -Uri "http://127.0.0.1:8000/agents/onboard" `
-   -Method Post
+   -Method Post `
+   -ContentType "application/json" `
+   -Body '{"display_name":"claims-support-agent","sponsor_user_id":"sponsor-user-object-id","description":"Assists claims teams","version":"1.0.0","category":"claims-support","capabilities":["claims triage","knowledge retrieval"],"environment":"development","support_contact":"claims-platform-team@example.com"}'
+```
+
+Read all persisted registrations through the separate registry endpoint:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/agents/registry" -Method Get
 ```
 
 Expected response shape:
@@ -201,6 +209,7 @@ The `.env` file contains the path to the CLI-generated configuration:
 
 ```env
 A365_GENERATED_CONFIG=a365.generated.config.json
+A365_REGISTRY_PATH=agent.registry.json
 ```
 
 `main.py` loads this file with `python-dotenv`. The `.env` file is ignored by Git. Do not put client secrets or passwords in it.
@@ -236,12 +245,12 @@ http://127.0.0.1:8000/docs
 The upload cannot create the blueprint. Microsoft requires the blueprint ID before `a365 publish` can update `manifest.json` and create `manifest/manifest.zip`. The required order is:
 
 ```text
-1. Update the fixed template in `app/services.py`.
-2. Run `a365 setup all --agent-name <display_name>` to create/configure the blueprint.
-3. Run `POST /agents/onboard` with no request body to verify `agentBlueprintId`.
+1. Run `a365 setup all --agent-name <display_name>` to create/configure the requested blueprint.
+2. Send that agent's metadata with `POST /agents/onboard`.
+3. The service reads the CLI-generated `agentBlueprintId` and persists the registration.
 4. Test the agent locally.
 5. Run a365 publish --agent-name <display_name>.
 6. Upload manifest/manifest.zip to Microsoft 365 admin center.
 ```
 
-This service does not replace `a365 setup all` or `a365 publish`. It validates the template and reads the CLI-generated blueprint ID; the Microsoft Agent 365 CLI provisions the blueprint and creates the publishable package.
+This service does not replace `a365 setup all` or `a365 publish`. The Agent 365 CLI provisions the blueprint and creates the publishable package; this service dynamically associates the generated blueprint ID with the metadata sent in each onboarding request.

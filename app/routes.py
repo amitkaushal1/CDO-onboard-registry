@@ -1,11 +1,12 @@
 """HTTP routes for agent onboarding."""
 from fastapi import APIRouter, HTTPException
 
-from app.config import generated_config_path
+from app.config import generated_config_path, registry_path
+from app.models import AgentRegistration
 from app.services import AgentRegistryService
 
 router = APIRouter()
-registry = AgentRegistryService(generated_config_path())
+registry = AgentRegistryService(generated_config_path(), registry_path())
 
 
 def _agent_payload(response):
@@ -24,9 +25,9 @@ def _agent_payload(response):
 
 
 @router.post("/agents/onboard")
-async def onboard_agent():
+async def onboard_agent(registration: AgentRegistration):
     try:
-        response = await registry.register_agent()
+        response = await registry.onboard_agent(registration)
         return {
             "message": "Agent blueprint is ready for publishing",
             **_agent_payload(response),
@@ -41,9 +42,9 @@ async def onboard_agent():
 
 @router.get("/agents/registry")
 async def get_registry_record():
-    """Return the current registered agent metadata without onboarding it."""
+    """Return all dynamically persisted agent registration records."""
     try:
-        response = await registry.register_agent()
-        return _agent_payload(response)
+        records = await registry.get_registry_records()
+        return [_agent_payload(record) for record in records]
     except Exception as error:
         raise HTTPException(status_code=400, detail=str(error)) from error

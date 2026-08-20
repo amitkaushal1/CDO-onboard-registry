@@ -12,3 +12,8 @@ def generated_config_path() -> Path:
     return Path(
         os.environ.get("A365_GENERATED_CONFIG", "a365.generated.config.json")
     )
+
+
+def registry_path() -> Path:
+    """Return the path used to persist dynamic registration records."""
+    return Path(os.environ.get("A365_REGISTRY_PATH", "agent.registry.json"))
