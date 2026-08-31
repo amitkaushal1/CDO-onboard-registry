@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 class AgentRegistration(BaseModel):
     display_name: str
-    sponsor_user_id: str = ""
+    sponsor_user_id: str 
     usecase_id: str
     workflow_id: str | None = None
     owner_ids: list[str] = Field(default_factory=list)
