@@ -5,15 +5,15 @@ from pydantic import BaseModel, Field
 class AgentRegistration(BaseModel):
     display_name: str
     sponsor_user_id: str = ""
-    usecase_id: str = "agent-usecase"
+    usecase_id: str
     workflow_id: str | None = None
     owner_ids: list[str] = Field(default_factory=list)
     owner_user_id: str | None = None
     description: str = ""
     version: str = "1.0.0"
-    category: str = "business-assistant"
+    category: str
     capabilities: list[str] = Field(default_factory=list)
-    environment: str = "development"
+    environment: str
     support_contact: str = ""
     agent_endpoint_url: str | None = None
     originating_store: str | None = None
@@ -31,9 +31,9 @@ class OnboardingResult(BaseModel):
     owner_user_id: str | None = None
     description: str = ""
     version: str = "1.0.0"
-    category: str = "business-assistant"
+    category: str
     capabilities: list[str] = Field(default_factory=list)
-    environment: str = "development"
+    environment: str
     support_contact: str = ""
     agent_identity_id: str | None = None
     agent_registration_id: str | None = None
@@ -47,6 +47,6 @@ class AgentActionResult(OnboardingResult):
 
 class RegistryRecord(OnboardingResult):
     """Persisted registration record for an onboarded agent."""
-    usecase_id: str = "agent-usecase"
+    usecase_id: str
     workflow_id: str | None = None
     idempotency_key: str | None = None
